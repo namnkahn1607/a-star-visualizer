@@ -1,6 +1,6 @@
 ### A* Shortest Pathfinding Visualizer
 
-💻 Build with React + TypeScript + Tailwind
+💻 Build with TypeScript + React + Tailwind
 
 👺 A* search explanation: https://www.youtube.com/watch?v=6TsL96NAZCo
 
