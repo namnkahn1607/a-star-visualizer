@@ -1,0 +1,128 @@
+import type { GridNode, Position } from "../types";
+import { heuristics } from "../function/heuristics.ts";
+import { gridUtils } from "../function/grid.ts";
+
+class AStarAlgorithm {
+    private readonly grid: GridNode[][];
+    private readonly start: Position;
+    private readonly end: Position;
+    private readonly heuristic: (a: Position, b: Position) => number;
+    private readonly allowDiagonal: boolean;
+
+    public openSet: Array<Position>;
+    public closedSet: Array<Position>;
+    public finished: boolean;
+
+    constructor(
+        grid: GridNode[][], start: Position, end: Position,
+        heuristicType: 'manhattan' | 'euclidean' | 'diagonal' = 'manhattan',
+        allowDiagonal: boolean = false
+    ) {
+        this.grid = JSON.parse(JSON.stringify(grid));
+        this.start = start;
+        this.end = end;
+        this.heuristic = heuristics[heuristicType];
+        this.allowDiagonal = allowDiagonal;
+        this.openSet = [start];
+        this.closedSet = [];
+        this.finished = false;
+
+        this.setup();
+    }
+
+    private setup() {
+        const startNode: GridNode = this.grid[this.start.row][this.start.col];
+        startNode.g = 0;
+        startNode.h = this.heuristic(this.start, this.end);
+        startNode.f = startNode.h;
+    }
+
+    step(): { current: Position | null; path: Position[]; finished: boolean } {
+        const [openSet, closedSet] = [this.openSet, this.closedSet];
+        const grid = this.grid;
+
+        // corner cases
+        if (openSet.length === 0 || this.finished) {
+            this.finished = true;
+
+            return { current: null, path: [], finished: true };
+        }
+
+        // find cell with min heuristic
+        let lowestIndex = 0;
+
+        for (let i = 1; i < openSet.length; i++) {
+            const current = openSet[i];
+            const lowest = openSet[lowestIndex];
+
+            if (grid[current.row][current.col].f < grid[lowest.row][lowest.col].f) {
+                lowestIndex = i;
+            }
+        }
+
+        // select the cell with the smallest heuristic
+        const current = openSet[lowestIndex];
+
+        // check if at finish line?
+        if (gridUtils.positionEquals(current, this.end)) {
+            this.finished = true;
+
+            return { current, path: this.reconstructPath(current), finished: true };
+        }
+
+        // close the current (smallest heuristic) cell
+        openSet.splice(lowestIndex, 1);
+        closedSet.push(current);
+
+        // retrieve all of its neighbors
+        const neighbors = gridUtils.getNeighbors(grid, current, this.allowDiagonal);
+
+        // iterate through all neighbors
+        for (const neighbor of neighbors) {
+            const neighborNode = grid[neighbor.row][neighbor.col];
+
+            // if neighbor is a closed cell -> do nothing
+            if (gridUtils.findPosition(closedSet, neighbor) !== -1) {
+                continue;
+            }
+
+            // moving diagonally cost sqrt(2), otherwise 1
+            const moveCost = this.allowDiagonal &&
+                (heuristics.manhattan(current, neighbor) === 2) ? Math.SQRT2 : 1;
+
+            // what's the cost of traveling to this neighbor?
+            const accumulateG = grid[current.row][current.col].g + moveCost;
+
+            const inOpenSet = gridUtils.findPosition(openSet, neighbor) !== -1;
+
+            if (!inOpenSet) {
+                openSet.push(neighbor);
+            } else if (accumulateG >= neighborNode.g) {
+                continue;
+            }
+
+            // update internal heuristic for neighbor
+            neighborNode.parent = current;
+            neighborNode.g = accumulateG;
+            neighborNode.h = this.heuristic(neighbor, this.end);
+            neighborNode.f = neighborNode.g + neighborNode.h;
+        }
+
+        return { current, path: [], finished: false };
+    }
+
+    reconstructPath(current: Position): Position[] {
+        const path: Array<Position> = [];
+        let temp: Position | null = current;
+
+        while (temp) {
+            path.push(temp);
+            const node: GridNode = this.grid[temp.row][temp.col];
+            temp = node.parent;
+        }
+
+        return path.reverse();
+    }
+}
+
+export { AStarAlgorithm };

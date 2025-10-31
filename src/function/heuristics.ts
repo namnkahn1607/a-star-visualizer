@@ -1,4 +1,4 @@
-import type {Position} from "../types";
+import type { Position } from "../types";
 
 const heuristics = {
     manhattan: (a: Position, b: Position) => {

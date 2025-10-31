@@ -1,6 +1,6 @@
 import React from 'react';
 import type { AStarState, GridNode } from "../types";
-import { gridUtils } from "../utils/grid.ts";
+import { gridUtils } from "../function/grid.ts";
 
 interface GridProps {
     astarState: AStarState;

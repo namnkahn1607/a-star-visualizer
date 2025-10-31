@@ -1,6 +1,6 @@
 import type { GridNode, Position } from "../types";
-import { heuristics } from "../utils/heuristics.ts";
-import { gridUtils } from "../utils/grid.ts";
+import { heuristics } from "../function/heuristics.ts";
+import { gridUtils } from "../function/grid.ts";
 import { MinPriorityQueue } from "./minPQ.ts";
 
 class AStarAlgorithmPQ {
@@ -68,7 +68,7 @@ class AStarAlgorithmPQ {
                 (heuristics.manhattan(current, neighbor) === 2) ? Math.SQRT2 : 1;
 
             const accumulateG = grid[current.row][current.col].g + moveCost;
-            const inOpenSet = openSet.containsKey(neighborKey);
+            const inOpenSet = openSet.contains(neighborKey);
 
             const updateNeighbor = () => {
                 neighborNode.parent = current;

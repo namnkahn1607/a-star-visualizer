@@ -3,8 +3,8 @@ import type { AStarState, GridNode, Position } from './types';
 import { Controls } from './components/Controls.tsx';
 import { Grid } from './components/Grid.tsx';
 import { Legend } from './components/Lengend.tsx';
-import { AStarAlgorithm } from './algorithms/astar.ts';
-import { gridUtils } from './utils/grid.ts';
+import { AStarAlgorithm } from './algorithms/core.ts';
+import { gridUtils } from './function/grid.ts';
 
 const App: React.FC = () => {
     const ROWS = 20;

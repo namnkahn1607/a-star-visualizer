@@ -76,7 +76,7 @@ class MinPriorityQueue<T> {
         this.bubbleUp(i);
     }
 
-    containsKey(key: string): boolean {
+    contains(key: string): boolean {
         return this.posMap.has(key);
     }
 

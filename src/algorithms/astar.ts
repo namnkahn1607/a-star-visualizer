@@ -1,128 +1,124 @@
-import type { GridNode, Position } from "../types";
-import { heuristics } from "../utils/heuristics.ts";
-import { gridUtils } from "../utils/grid.ts";
+/* A* search: heuristic shortest pathfinding algorithm */
 
-class AStarAlgorithm {
-    private readonly grid: GridNode[][];
-    private readonly start: Position;
-    private readonly end: Position;
-    private readonly heuristic: (a: Position, b: Position) => number;
-    private readonly allowDiagonal: boolean;
+import { MinPriorityQueue } from "./minPQ.ts";
 
-    public openSet: Array<Position>;
-    public closedSet: Array<Position>;
-    public finished: boolean;
+class AStar {
+    shortestPath(
+        grid: string[][], start: number[], end: number[]
+    ): number[][] {
+        const distance = (a: number[]) =>
+            Math.abs(a[0] - end[0]) + Math.abs(a[1] - end[1]);
 
-    constructor(
-        grid: GridNode[][], start: Position, end: Position,
-        heuristicType: 'manhattan' | 'euclidean' | 'diagonal' = 'manhattan',
-        allowDiagonal: boolean = false
-    ) {
-        this.grid = JSON.parse(JSON.stringify(grid));
-        this.start = start;
-        this.end = end;
-        this.heuristic = heuristics[heuristicType];
-        this.allowDiagonal = allowDiagonal;
-        this.openSet = [start];
-        this.closedSet = [];
-        this.finished = false;
+        const toKey = (pos: number[]) => pos.join(',');
 
-        this.setup();
-    }
+        const [ROW, COL] = [grid.length, grid[0].length];
+        const dirs = [[-1, 0], [0, -1], [1, 0], [0, 1]];
 
-    private setup() {
-        const startNode: GridNode = this.grid[this.start.row][this.start.col];
-        startNode.g = 0;
-        startNode.h = this.heuristic(this.start, this.end);
-        startNode.f = startNode.h;
-    }
+        const parents = new Map<string, string>();
+        const gCost = new Map<string, number>(
+            [[toKey(start), 0]]
+        );
+        const closed = new Set<string>();
+        const opened = new MinPriorityQueue<number[]>(
+            (pos: number[]) => gCost.get(toKey(pos))! + distance(pos),
+            toKey, [start]
+        );
 
-    step(): { current: Position | null; path: Position[]; finished: boolean } {
-        const [openSet, closedSet] = [this.openSet, this.closedSet];
-        const grid = this.grid;
+        while (!opened.isEmpty()) {
+            const curr = opened.delMin()!;
+            const currKey = toKey(curr);
 
-        // corner cases
-        if (openSet.length === 0 || this.finished) {
-            this.finished = true;
+            // check if reached goal
+            if (distance(curr) === 0)
+                return this.reconstructPath(parents, curr);
 
-            return { current: null, path: [], finished: true };
-        }
+            // not the goal cell -> close it, avoid circular path
+            closed.add(currKey);
 
-        // find cell with min heuristic
-        let lowestIndex = 0;
+            for (const [dR, dC] of dirs) {
+                const [newR, newC] = [curr[0] + dR, curr[1] + dC];
+                const neiKey = toKey([newR, newC]);
 
-        for (let i = 1; i < openSet.length; i++) {
-            const current = openSet[i];
-            const lowest = openSet[lowestIndex];
+                // out of matrix or blocked cell -> skip
+                if (newR < 0 || newR >= ROW ||
+                    newC < 0 || newC >= COL || grid[newR][newC] !== '0')
+                    continue;
 
-            if (grid[current.row][current.col].f < grid[lowest.row][lowest.col].f) {
-                lowestIndex = i;
+                // closed neighbor -> skip
+                if (closed.has(neiKey)) continue;
+
+                // new G cost for every neighbor
+                const accumulateG = gCost.get(currKey)! + 1;
+
+                /* 1. IF haven't reached this neighbor before OR
+                * 2. IF the new path is better, then
+                * -> record best path, cost, add to PQ */
+                if (!gCost.has(neiKey) || accumulateG < gCost.get(neiKey)!) {
+                    parents.set(neiKey, currKey);
+                    gCost.set(neiKey, accumulateG);
+
+                    if (!opened.contains(neiKey)) {
+                        opened.insert([newR, newC]);
+                    } else {
+                        opened.decreaseKey([newR, newC]);
+                    }
+                }
             }
         }
 
-        // select the cell with the smallest heuristic
-        const current = openSet[lowestIndex];
-
-        // check if at finish line?
-        if (gridUtils.positionEquals(current, this.end)) {
-            this.finished = true;
-
-            return { current, path: this.reconstructPath(current), finished: true };
-        }
-
-        // close the current (smallest heuristic) cell
-        openSet.splice(lowestIndex, 1);
-        closedSet.push(current);
-
-        // retrieve all of its neighbors
-        const neighbors = gridUtils.getNeighbors(grid, current, this.allowDiagonal);
-
-        // iterate through all neighbors
-        for (const neighbor of neighbors) {
-            const neighborNode = grid[neighbor.row][neighbor.col];
-
-            // if neighbor is a closed cell -> do nothing
-            if (gridUtils.findPosition(closedSet, neighbor) !== -1) {
-                continue;
-            }
-
-            // moving diagonally cost sqrt(2), otherwise 1
-            const moveCost = this.allowDiagonal &&
-                (heuristics.manhattan(current, neighbor) === 2) ? Math.SQRT2 : 1;
-
-            // what's the cost of traveling to this neighbor?
-            const accumulateG = grid[current.row][current.col].g + moveCost;
-
-            const inOpenSet = gridUtils.findPosition(openSet, neighbor) !== -1;
-
-            if (!inOpenSet) {
-                openSet.push(neighbor);
-            } else if (accumulateG >= neighborNode.g) {
-                continue;
-            }
-
-            // update internal heuristic for neighbor
-            neighborNode.parent = current;
-            neighborNode.g = accumulateG;
-            neighborNode.h = this.heuristic(neighbor, this.end);
-            neighborNode.f = neighborNode.g + neighborNode.h;
-        }
-
-        return { current, path: [], finished: false };
+        return [[-1, -1]];
     }
 
-    reconstructPath(current: Position): Position[] {
-        const path: Array<Position> = [];
-        let temp: Position | null = current;
+    private reconstructPath(
+        parents: Map<string, string>, curr: number[]
+    ): number[][] {
+        const toKey = (pos: number[]) => pos.join(',');
+        const toPos = (key: string) => key.split(',').map(Number);
 
-        while (temp) {
-            path.push(temp);
-            const node: GridNode = this.grid[temp.row][temp.col];
-            temp = node.parent;
+        const path: number[][] = [curr];
+
+        while (parents.has(toKey(curr))) {
+            curr = toPos(parents.get(toKey(curr))!);
+            path.push(curr);
         }
 
         return path.reverse();
     }
+
+    shortestDist(
+        grid: string[][], start: number[], end: number[]
+    ): number {
+        return this.shortestPath(grid, start, end).length - 1;
+    }
+
+    public static run(): void {
+        const grid: string[][] = [
+            ['0', '0', '0', '0', '0', '0', '1', '0'],
+            ['0', '1', '0', '1', '0', '0', '0', '0'],
+            ['0', '0', '0', '1', '0', '1', '0', '0'],
+            ['0', '1', '0', '1', '0', '0', '0', '0'],
+            ['0', '0', '0', '0', '0', '1', '1', '0'],
+            ['0', '0', '1', '0', '0', '0', '0', '0'],
+        ];
+        const [ROW, COL] = [grid.length, grid[0].length];
+
+        const start: number[] = [0, 0];
+        const end: number[] = [ROW - 1, COL - 1];
+
+        const dist = new AStar().shortestDist(grid, start, end);
+        const path = new AStar().shortestPath(grid, start, end);
+
+        console.log('Shortest distance:', dist);
+
+        if (path[0][0] == -1 && path[0][1] == -1) {
+            console.log('No path found!');
+            return;
+        }
+
+        console.log(path.map(
+            val => val.join(',')
+        ).join(' -> '));
+    }
 }
 
-export { AStarAlgorithm };
+AStar.run();

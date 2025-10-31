@@ -1,0 +1,64 @@
+function A_Star(start, goal):
+    // Initialize open set with start node
+    openSet = PriorityQueue()
+    openSet.add(start, f_score = 0)
+
+    // Track visited nodes
+    closedSet = Set()
+
+    // Cost from start to each node
+    g_score = Map()
+    g_score[start] = 0
+
+    // Estimated total cost from start to goal through each node
+    f_score = Map()
+    f_score[start] = heuristic(start, goal)
+
+    // Track path
+    cameFrom = Map()
+
+    while openSet is not empty:
+        // Get node with lowest f_score
+        current = openSet.pop_lowest()
+
+        // Check if goal reached
+        if current == goal:
+            return reconstruct_path(cameFrom, current)
+
+        closedSet.add(current)
+
+        // Explore neighbors
+        for each neighbor in current.neighbors:
+            if neighbor in closedSet:
+                continue
+
+            // Calculate tentative g_score
+            tentative_g = g_score[current] + distance(current, neighbor)
+
+            // If this path to neighbor is better than previous
+            if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                // Record this path
+                cameFrom[neighbor] = current
+                g_score[neighbor] = tentative_g
+                f_score[neighbor] = tentative_g + heuristic(neighbor, goal)
+
+                // Add neighbor to open set if not already there
+                if neighbor not in openSet:
+                    openSet.add(neighbor, f_score[neighbor])
+
+    // No path found
+    return failure
+
+
+function heuristic(node, goal):
+    // Estimate cost from node to goal
+    // Common choices: Euclidean distance, Manhattan distance
+    return estimated_distance(node, goal)
+
+
+function reconstruct_path(cameFrom, current):
+    path = [current]
+    while current in cameFrom:
+        current = cameFrom[current]
+        path.prepend(current)
+    return path
